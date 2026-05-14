@@ -174,6 +174,17 @@ class Trading(Link):
         return self.get_status(data)
 
     @http.route
+    def post_force_real_paper(self, data):
+        self._ensure_state()
+        self._reset_to_flat()
+        self.TEST_MODE = "REAL"
+        self.DRY_RUN = False
+        self.GROSS_EXPOSURE = 0.25
+        self.MAX_GROSS_EXPOSURE = 0.25
+        self._log("force_real_paper", gross=self.GROSS_EXPOSURE)
+        return self.get_status(data)
+
+    @http.route
     def post_force_safe_dry(self, data):
         self._ensure_state()
         self._reset_to_flat()
