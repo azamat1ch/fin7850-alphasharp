@@ -1,10 +1,12 @@
 # FIN7850 AlphaSharp Plan
 
-Last updated: 2026-05-13
+Last updated: 2026-05-14
+
+This is the original implementation plan plus the stable strategy spec and validation gates. For the current run order, use `operation-checklist.md`.
 
 ## Goal
 
-Build a real ProfitView trading bot for the FIN7850 paper trading competition.
+Original goal: build a real ProfitView trading bot for the FIN7850 paper trading competition.
 
 The goal is not max PnL. The goal is a small positive return with strong Sharpe, low drawdown, and clean execution.
 
@@ -22,6 +24,8 @@ Current implementation status:
 - Local trigger audit, historical backtest, relaxed replay, and ProfitView bot are implemented.
 - ProfitView bot file: `AlphaSharp.py`.
 - Default ProfitView mode is safe: `DRY_RUN=True` and `TEST_MODE="RELAXED"`.
+- Original implementation layers are done at code level.
+- Remaining work is operational validation: longer relaxed dry-run, real-rule dry-run, tiny WooPaper order tests, and WooPaper forward evidence.
 - Strategy quality is not proven yet. Recent validation can look good, but training backtests were negative across the tested grids, so this is not cleared for real live trading without WooPaper confirmation.
 
 Competition window:
@@ -268,7 +272,7 @@ If no strategy trade has happened late in the competition and participation requ
 
 ## Bot Requirements
 
-Create `AlphaSharp.py` for ProfitView.
+`AlphaSharp.py` has been created for ProfitView.
 
 Core features:
 
@@ -308,7 +312,7 @@ The state machine is non-negotiable. It prevents duplicate pair entries and brok
 
 ## Layered Implementation
 
-Layers are implementation order, not optional strategy variants. Backtest the core first so we can see signal quality quickly, then add the execution and risk controls needed before any paper orders.
+Layers were implementation order, not optional strategy variants. These are implemented in the local bot/backtest path; current validation status lives in `operation-checklist.md`.
 
 Layer 1: core pair strategy
 
@@ -373,7 +377,15 @@ Initial live defaults after backtest, unless evidence says otherwise:
 - Profit lock: reduce size after `+1%`; stop new normal trades after `+1.5%`
 - Expected competition frequency: `2-8` round trips
 
-## Execution Steps
+## Original Execution Steps
+
+Status summary:
+
+- Trigger audit and local data path: done.
+- Historical backtest/grid runner: done.
+- ProfitView bot draft and upload: done.
+- Short safe ProfitView dry-run: done.
+- Longer relaxed dry-run, real-rule dry-run, tiny WooPaper order test, and WooPaper forward test: still pending.
 
 ### 1. Trigger Audit And Data Pull
 
@@ -397,7 +409,7 @@ Initial live defaults after backtest, unless evidence says otherwise:
 
 ### 3. Dry-Run Safety Checks
 
-- Build `AlphaSharp.py` with trading disabled.
+- Build `AlphaSharp.py` with trading disabled. Status: done; current default is still `DRY_RUN=True`.
 - First run forced dry-run mode with easy thresholds so entries/exits/stops trigger quickly.
 - Then run real dry-run mode with real thresholds.
 - Bot logs `would_long_eth_short_btc`, `would_short_eth_long_btc`, `would_close_pair`, skipped signals, and reasons.

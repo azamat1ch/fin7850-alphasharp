@@ -1,12 +1,28 @@
-# AlphaSharp Operation Checklist
+# AlphaSharp Operation Checklist And Handoff
 
-Last updated: 2026-05-13
+Last updated: 2026-05-14
+
+Current date context: May 14, 2026 HKT.
+
+## Project Status
+
+The project has one strategy now: BTC/ETH residual mean-reversion pair trading.
+
+Implementation exists:
+
+- `AlphaSharp.py`: ProfitView bot.
+- `scripts/backtest_strategy.py`: backtest/grid runner.
+- `scripts/trigger_audit.py`: trigger-frequency sanity check.
+- `scripts/local_relaxed_dry_run.py`: local fake relaxed replay.
+- `docs/plan.md`: full execution plan and parameter logic.
+- `docs/strategy-onepager.md`: concise strategy narrative.
+- `scratchpad.md`: detailed work log.
 
 ## Current Go / No-Go
 
 Status: implementation ready for dry-run and tiny WooPaper plumbing tests.
 
-Not cleared for real live/competition sizing yet. Historical validation can look good, but train-period backtests were negative across tested grids. The next gate is clean WooPaper forward evidence, not more local optimism.
+Do not treat this as live-ready. Historical validation can look good, but train-period backtests were negative across tested grids. The next gate is clean WooPaper forward evidence, not more local optimism.
 
 Latest ProfitView status:
 
@@ -14,7 +30,21 @@ Latest ProfitView status:
 - `DRY_RUN=True` and `TEST_MODE="RELAXED"` are the current safe defaults.
 - WOO paper BTC/ETH perp markets were selected.
 - A short startup dry-run found and fixed ProfitView-specific issues around webhook names, lazy bot state, and quote parsing.
-- Bot was stopped cleanly after the short dry-run. Run a longer relaxed soak before enabling any paper orders.
+- Bot was stopped cleanly after the short dry-run.
+- No real orders were enabled.
+
+Immediate next steps:
+
+1. Open ProfitView and confirm `AlphaSharp.py` is still saved.
+2. Confirm `DRY_RUN=True`, `TEST_MODE="RELAXED"`, and venue `WooPaper`.
+3. Start the bot and run a 15-60 minute relaxed dry-run.
+4. Watch logs for fresh errors after the last fixes:
+   - webhook route naming fixed;
+   - lazy state init fixed;
+   - quote `[price, size]` parsing fixed.
+5. If relaxed dry-run is clean, switch only `TEST_MODE="REAL"` while keeping `DRY_RUN=True`.
+6. Run a 30-60 minute real-rule dry-run.
+7. Only after clean logs, do tiny WooPaper order tests.
 
 ## Before Starting ProfitView
 
@@ -93,3 +123,36 @@ Purpose: prove the real strategy, not only the code.
 ## Competition Rule
 
 Do not loosen thresholds mid-competition just because no trade happened. If a required participation trade is needed, use a tiny controlled contingency trade rather than converting the strategy into an overactive version.
+
+## Useful Commands
+
+Local syntax check:
+
+```bash
+python3 -m py_compile AlphaSharp.py scripts/backtest_strategy.py scripts/trigger_audit.py scripts/local_relaxed_dry_run.py
+```
+
+Trigger audit:
+
+```bash
+python3 scripts/trigger_audit.py --days 180
+```
+
+Backtest:
+
+```bash
+python3 scripts/backtest_strategy.py --days 180
+python3 scripts/backtest_strategy.py --days 180 --quality-grid
+```
+
+Local relaxed replay:
+
+```bash
+python3 scripts/local_relaxed_dry_run.py --days 21
+```
+
+## Reports Policy
+
+Do not generate artifacts by default. The old verbose Markdown reports and trade CSVs were removed.
+
+Use stdout for normal checks. If a file is genuinely useful, pass `--report some/path.txt` or `--trades some/path.csv` explicitly.

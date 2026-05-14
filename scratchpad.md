@@ -15,8 +15,7 @@ Implement the FIN7850 AlphaSharp BTC/ETH residual mean-reversion project end to 
 ## Current State
 
 - Docs are aligned around one BTC/ETH residual mean-reversion pair strategy.
-- Next-session handoff exists:
-  - `NEXT_SESSION.md`
+- Operational handoff lives in `docs/operation-checklist.md`.
 - Trigger-frequency audit exists:
   - Script: `scripts/trigger_audit.py`
 - Cached Binance proxy data exists for BTC/ETH 15m.
@@ -47,10 +46,13 @@ Implement the FIN7850 AlphaSharp BTC/ETH residual mean-reversion project end to 
 
 ### 2026-05-14
 
-- Added `NEXT_SESSION.md` as the short pickup file for future sessions.
 - Removed generated reports and trade CSV artifacts from `reports/`.
 - Changed scripts so reports/trade CSVs are optional and nothing is written by default.
 - Removed Python cache folders from the project.
+- Deleted the separate next-session handoff file; `docs/operation-checklist.md` is now the single operational handoff/runbook.
+- Merged `docs/project-brief.md` into `README.md` and deleted the separate brief.
+- Re-scoped `docs/api-cli-research.md` to API/platform reference only.
+- Marked `docs/plan.md` as the original implementation plan plus stable strategy spec/validation gates.
 
 ## Decisions
 
