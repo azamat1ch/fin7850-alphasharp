@@ -20,31 +20,35 @@ Implementation exists:
 
 ## Current Go / No-Go
 
-Status: implementation ready for dry-run and tiny WooPaper plumbing tests.
+Status: implementation ready for WooPaper forward testing at conservative size.
 
-Do not treat this as live-ready. Historical validation can look good, but train-period backtests were negative across tested grids. The next gate is clean WooPaper forward evidence, not more local optimism.
+Do not treat this as strategy-proven or live-ready. Historical validation can look good, but train-period backtests were negative across tested grids. The next gate is clean WooPaper forward evidence, not more local optimism.
 
 Latest ProfitView status:
 
 - `AlphaSharp.py` is saved in ProfitView.
 - `DRY_RUN=True` and `TEST_MODE="RELAXED"` are the current safe defaults.
 - WOO paper BTC/ETH perp markets were selected.
-- A short startup dry-run found and fixed ProfitView-specific issues around webhook names, lazy bot state, and quote parsing.
-- Bot was stopped cleanly after the short dry-run.
-- No real orders were enabled.
+- ProfitView-specific issues fixed so far:
+  - webhook methods must use `get_` / `post_` prefixes;
+  - ProfitView may call market callbacks before custom instance state exists, so bot state lazily initializes;
+  - quote updates send `bid` / `ask` as `[price, size]`, so the parser extracts the first element;
+  - WOO market-order side must be `Buy` / `Sell`, not lowercase.
+- Relaxed dry-run on May 14 stayed healthy with live BTC/ETH signal calculation and no new callback error loop.
+- Real-rule dry-run on May 14 stayed healthy with orders disabled; no entry triggered, which was expected.
+- Tiny WooPaper order tests on May 14 successfully opened and flattened both pair directions after the side-casing fix.
+- Final tiny-test state: no open orders, bot returned to safe dry mode, then the script was stopped cleanly.
+- Tiny paper test cost: about `-0.54 USDT` across two forced pair round trips. Treat this as fee/spread plumbing cost, not performance evidence.
 
 Immediate next steps:
 
 1. Open ProfitView and confirm `AlphaSharp.py` is still saved.
 2. Confirm `DRY_RUN=True`, `TEST_MODE="RELAXED"`, and venue `WooPaper`.
-3. Start the bot and run a 15-60 minute relaxed dry-run.
-4. Watch logs for fresh errors after the last fixes:
-   - webhook route naming fixed;
-   - lazy state init fixed;
-   - quote `[price, size]` parsing fixed.
-5. If relaxed dry-run is clean, switch only `TEST_MODE="REAL"` while keeping `DRY_RUN=True`.
-6. Run a 30-60 minute real-rule dry-run.
-7. Only after clean logs, do tiny WooPaper order tests.
+3. Before real forward testing, confirm no BTC/ETH paper positions or open orders exist.
+4. Start `TEST_MODE="REAL"` with conservative or tiny size.
+5. Set `DRY_RUN=False` only when someone is actively monitoring the first forward-test session.
+6. Track each real strategy entry/exit, fees, PnL, drawdown, skipped signals, and any runtime errors.
+7. Return to `DRY_RUN=True` or stop the script when not actively monitoring.
 
 ## Before Starting ProfitView
 
@@ -90,12 +94,19 @@ Purpose: test real strategy rules with orders still disabled.
 
 ## Tiny WooPaper Order Test
 
-Only do this after relaxed and real dry-run have no runtime errors.
+Completed on May 14, 2026 HKT.
+
+Only repeat this if order plumbing changes.
 
 - Keep venue as `WooPaper`.
 - Reduce gross exposure or order sizing to tiny notional.
 - Set `DRY_RUN=False` only for the tiny paper test.
-- Use relaxed mode first so a controlled fake-quality setup can trigger.
+- Use the deterministic tiny paper webhooks rather than waiting for natural relaxed-mode triggers:
+  - `post_force_tiny_paper`
+  - `post_test_short_eth_long_btc`
+  - `post_test_long_eth_short_btc`
+  - `post_flatten`
+  - `post_force_safe_dry`
 - Verify:
   - BTC leg opens and closes.
   - ETH leg opens and closes.
@@ -104,6 +115,13 @@ Only do this after relaxed and real dry-run have no runtime errors.
   - manual flatten route works.
   - ProfitView positions match the bot state.
 - Return to `DRY_RUN=True` immediately after the test unless actively paper-forward-testing.
+
+Last result:
+
+- Both pair directions opened and closed successfully.
+- Four WooPaper leg trades were recorded.
+- No open orders remained afterward.
+- Script was stopped cleanly.
 
 ## WooPaper Forward Test
 

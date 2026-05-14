@@ -53,6 +53,14 @@ Implement the FIN7850 AlphaSharp BTC/ETH residual mean-reversion project end to 
 - Merged `docs/project-brief.md` into `README.md` and deleted the separate brief.
 - Re-scoped `docs/api-cli-research.md` to API/platform reference only.
 - Marked `docs/plan.md` as the original implementation plan plus stable strategy spec/validation gates.
+- Ran local syntax check and local relaxed replay before platform testing. Syntax passed; local relaxed replay still produced 14 fake trades over 21 days.
+- Uploaded patched `AlphaSharp.py` to ProfitView and ran end-to-end tests 1-3:
+  - Relaxed dry-run: ran on ProfitView with `DRY_RUN=True`, `TEST_MODE="RELAXED"`, live BTC/ETH signal available, no new callback error loop, no entry because z was only about `-0.18`.
+  - Real dry-run: switched through webhook to `TEST_MODE="REAL"` while keeping `DRY_RUN=True`; stayed flat as expected, no runtime error loop.
+  - Tiny WooPaper plumbing test: first attempt exposed a WOO/ProfitView requirement that market order side must be `Buy` / `Sell`, not lowercase `buy` / `sell`. No orders filled on the failed attempt.
+  - Patched `AlphaSharp.py` to use `Buy` / `Sell`, added deterministic tiny paper routes, safe-mode reset behavior, and basic order-response checks/logging.
+  - Retried tiny WooPaper tests successfully in both pair directions with about `0.01x` gross exposure. Four leg trades closed, no open orders remained, bot state returned to `FLAT`, and the script was stopped cleanly.
+  - Final paper-test PnL for the two forced pair round trips was about `-0.54 USDT`, which is expected fee/spread drag and not strategy evidence.
 
 ## Decisions
 
@@ -61,9 +69,10 @@ Implement the FIN7850 AlphaSharp BTC/ETH residual mean-reversion project end to 
 - Use Binance futures as long-history proxy when WOO/ProfitView data is unavailable or too short.
 - Do not optimize for more trades until quality after fees is understood.
 - Do not treat the latest positive validation as enough to go live; train results are still weak.
+- For future plumbing tests, use the deterministic tiny paper webhooks rather than waiting for relaxed mode to naturally trigger.
 
 ## Open Questions
 
 - Can the strategy be improved without adding complexity or overfitting?
 - Should live competition use this strategy only if WooPaper forward test confirms the recent validation behavior? Current answer: yes.
-- Can the ProfitView run stay stable for a longer 15-60 minute relaxed dry-run and then a 30-60 minute real-rule dry-run?
+- Can WooPaper forward testing of the real strategy produce positive evidence after fees without execution bugs?

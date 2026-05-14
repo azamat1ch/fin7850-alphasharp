@@ -48,6 +48,7 @@ class Trading(Link):
     RELAXED_ENTRY_Z = 0.5
     RELAXED_EXIT_Z = 0.2
     RELAXED_BYPASS_FILTERS = True
+    TEST_GROSS_EXPOSURE = 0.01
 
     MIN_REFRESH_SECONDS = 60
     STALE_QUOTE_SECONDS = 20
@@ -146,8 +147,52 @@ class Trading(Link):
         self._ensure_state()
         self.TEST_MODE = "RELAXED"
         self.DRY_RUN = True
+        self.GROSS_EXPOSURE = 0.75
+        self.MAX_GROSS_EXPOSURE = 1.0
         self._log("force_relaxed_dry_run")
         return self.get_status(data)
+
+    @http.route
+    def post_force_real_dry(self, data):
+        self._ensure_state()
+        self.TEST_MODE = "REAL"
+        self.DRY_RUN = True
+        self.GROSS_EXPOSURE = 0.75
+        self.MAX_GROSS_EXPOSURE = 1.0
+        self._log("force_real_dry_run")
+        return self.get_status(data)
+
+    @http.route
+    def post_force_tiny_paper(self, data):
+        self._ensure_state()
+        self._reset_to_flat()
+        self.TEST_MODE = "RELAXED"
+        self.DRY_RUN = False
+        self.GROSS_EXPOSURE = self.TEST_GROSS_EXPOSURE
+        self.MAX_GROSS_EXPOSURE = self.TEST_GROSS_EXPOSURE
+        self._log("force_tiny_paper", gross=self.GROSS_EXPOSURE)
+        return self.get_status(data)
+
+    @http.route
+    def post_force_safe_dry(self, data):
+        self._ensure_state()
+        self._reset_to_flat()
+        self.TEST_MODE = "RELAXED"
+        self.DRY_RUN = True
+        self.GROSS_EXPOSURE = 0.75
+        self.MAX_GROSS_EXPOSURE = 1.0
+        self._log("force_safe_dry")
+        return self.get_status(data)
+
+    @http.route
+    def post_test_short_eth_long_btc(self, data):
+        self._ensure_state()
+        return self._manual_test_entry(data, direction=1)
+
+    @http.route
+    def post_test_long_eth_short_btc(self, data):
+        self._ensure_state()
+        return self._manual_test_entry(data, direction=-1)
 
     def _tick(self, event):
         self._ensure_state()
@@ -225,10 +270,10 @@ class Trading(Link):
         btc_notional, eth_notional = self._leg_notionals(gross * equity, signal["beta"])
 
         if self.direction > 0:
-            orders = [(self.ETH, "sell", eth_notional), (self.BTC, "buy", btc_notional)]
+            orders = [(self.ETH, "Sell", eth_notional), (self.BTC, "Buy", btc_notional)]
             name = "short_eth_long_btc"
         else:
-            orders = [(self.ETH, "buy", eth_notional), (self.BTC, "sell", btc_notional)]
+            orders = [(self.ETH, "Buy", eth_notional), (self.BTC, "Sell", btc_notional)]
             name = "long_eth_short_btc"
 
         self.entry = {
@@ -254,12 +299,42 @@ class Trading(Link):
                 if size <= 0:
                     raise ValueError("size <= 0")
                 self._log("order_entry", sym=sym, side=side, size=size, notional=notional)
-                self.create_market_order(self.VENUE, sym=sym, side=side, size=size)
+                response = self.create_market_order(self.VENUE, sym=sym, side=side, size=size)
+                self._raise_if_order_error(response)
+                self._log("order_entry_response", sym=sym, data=str(response)[:300])
             self.state = "OPEN"
         except Exception as exc:
             self._log("entry_failed_flattening", error=repr(exc))
             self._flatten_best_effort()
             self._reset_to_flat()
+
+    def _manual_test_entry(self, data, direction):
+        if self.VENUE != "WooPaper":
+            return {"ok": False, "error": "manual_test_requires_woopaper", "status": self.get_status(data)}
+        if self.DRY_RUN:
+            return {"ok": False, "error": "dry_run_true_use_post_force_tiny_paper_first", "status": self.get_status(data)}
+        if self.TEST_MODE != "RELAXED":
+            return {"ok": False, "error": "manual_test_requires_relaxed_mode", "status": self.get_status(data)}
+        if self.state != "FLAT":
+            return {"ok": False, "error": "state_not_flat", "status": self.get_status(data)}
+        if not self._quotes_fresh():
+            return {"ok": False, "error": "quotes_not_fresh", "status": self.get_status(data)}
+
+        self.direction = direction
+        signal = {
+            "ts": int(time.time() * 1000),
+            "btc": self.latest_quotes[self.BTC]["price"],
+            "eth": self.latest_quotes[self.ETH]["price"],
+            "beta": 1.0,
+            "z": 1.0 if direction > 0 else -1.0,
+            "resid_sigma": 0.01,
+            "corr": 1.0,
+            "shock": False,
+        }
+        self.last_signal = signal
+        self._log("manual_test_entry_requested", direction=direction, gross=self.GROSS_EXPOSURE)
+        self._enter_pair(signal)
+        return {"ok": True, "status": self.get_status(data)}
 
     def _manage_open(self, signal):
         if not self.entry:
@@ -297,9 +372,9 @@ class Trading(Link):
         btc_notional, eth_notional = self._leg_notionals(gross * equity, self.entry["beta"])
 
         if direction > 0:
-            orders = [(self.ETH, "buy", eth_notional), (self.BTC, "sell", btc_notional)]
+            orders = [(self.ETH, "Buy", eth_notional), (self.BTC, "Sell", btc_notional)]
         else:
-            orders = [(self.ETH, "sell", eth_notional), (self.BTC, "buy", btc_notional)]
+            orders = [(self.ETH, "Sell", eth_notional), (self.BTC, "Buy", btc_notional)]
 
         if self.DRY_RUN:
             pnl = self._pair_pnl(self.last_signal) if self.last_signal else 0.0
@@ -312,9 +387,16 @@ class Trading(Link):
             for sym, side, notional in orders:
                 size = self._size_from_notional(sym, notional)
                 self._log("order_exit", sym=sym, side=side, size=size, reason=reason)
-                self.create_market_order(self.VENUE, sym=sym, side=side, size=size)
+                response = self.create_market_order(self.VENUE, sym=sym, side=side, size=size)
+                self._raise_if_order_error(response)
+                self._log("order_exit_response", sym=sym, data=str(response)[:300])
         finally:
             self._reset_to_flat()
+
+    def _raise_if_order_error(self, response):
+        if isinstance(response, dict):
+            if response.get("status") == "error" or response.get("success") is False:
+                raise ValueError("order_error " + str(response)[:300])
 
     def _filters_ok(self, signal):
         if self.TEST_MODE == "RELAXED" and self.RELAXED_BYPASS_FILTERS:

@@ -18,7 +18,7 @@ The repo contains the local project code and strategy notes:
 
 Implemented, but not live-ready.
 
-Backtests showed enough signal frequency, but strategy quality is not proven: some validation configs looked good while training-period results were negative across tested grids. The correct next step is longer dry-run and tiny WooPaper plumbing tests, not real sizing.
+Backtests showed enough signal frequency, but strategy quality is not proven: some validation configs looked good while training-period results were negative across tested grids. ProfitView relaxed dry-run, real dry-run, and tiny WooPaper order plumbing tests have passed. The correct next step is conservative WooPaper forward testing of the real strategy, not real sizing.
 
 `AlphaSharp.py` defaults to safe mode:
 
@@ -27,7 +27,7 @@ DRY_RUN = True
 TEST_MODE = "RELAXED"
 ```
 
-Do not set `DRY_RUN=False` until the checklist is complete.
+Do not set `DRY_RUN=False` except for monitored WooPaper forward testing or an explicitly repeated tiny plumbing test.
 
 ## Course Context
 
